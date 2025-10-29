@@ -1,259 +1,118 @@
+import { faker } from '@faker-js/faker'
 import { db } from '.'
 import { webhooks } from './schema'
-import { faker } from '@faker-js/faker/locale/pt_BR'
 
-async function seed() {
-  console.log('🌱 Inserindo webhooks simulados do Stripe...')
+// Eventos comuns do Stripe
+const stripeEvents = [
+  'charge.succeeded',
+  'charge.failed',
+  'charge.refunded',
+  'payment_intent.succeeded',
+  'payment_intent.payment_failed',
+  'payment_intent.created',
+  'invoice.paid',
+  'invoice.payment_failed',
+  'invoice.created',
+  'invoice.finalized',
+  'customer.created',
+  'customer.updated',
+  'customer.deleted',
+  'customer.subscription.created',
+  'customer.subscription.updated',
+  'customer.subscription.deleted',
+  'checkout.session.completed',
+  'checkout.session.expired',
+  'payment_method.attached',
+  'payment_method.detached',
+]
 
-  const stripeEvents = [
-    'payment_intent.succeeded',
-    'payment_intent.payment_failed',
-    'payment_intent.canceled',
-    'invoice.payment_succeeded',
-    'invoice.payment_failed',
-    'invoice.finalized',
-    'invoice.created',
-    'customer.created',
-    'customer.updated',
-    'customer.deleted',
-    'subscription.created',
-    'subscription.updated',
-    'subscription.deleted',
-    'checkout.session.completed',
-    'charge.succeeded',
-    'charge.failed',
-    'charge.dispute.created',
-    'payment_method.attached',
-    'setup_intent.succeeded',
-    'setup_intent.setup_failed',
-    'invoice.upcoming',
-    'customer.subscription.trial_will_end',
-    'customer.subscription.deleted',
-    'payment_intent.requires_action',
-    'invoice.marked_uncollectible',
-    'charge.succeeded',
-    'charge.pending',
-    'charge.refunded',
-    'payment_intent.processing',
-    'invoice.payment_action_required',
-    'customer.source.created',
-    'customer.source.deleted',
-    'payment_intent.requires_capture',
-    'checkout.session.expired',
-    'issuing_card.created',
-    'issuing_card.updated',
-    'issuing_transaction.created',
-    'radar.early_fraud_warning.created',
-    'payment_intent.amount_capturable_updated',
-    'person.created',
-    'person.updated',
-    'person.deleted',
-    'account.external_account.created',
-    'account.external_account.deleted',
-    'transfer.created',
-    'transfer.failed',
-    'transfer.paid',
-    'payout.created',
-    'payout.paid',
-    'payout.failed',
-    'balance.available',
-    'application_fee.created',
-    'application_fee.refunded',
-    'invoice.sent',
-    'customer.discount.created',
-    'customer.discount.deleted',
-    'subscription_schedule.created',
-    'subscription_schedule.released',
-    'product.created',
-    'product.updated',
-    'product.deleted',
-    'price.created',
-    'price.updated',
-    'price.deleted',
-  ]
+function generateStripeWebhook() {
+  const eventType = faker.helpers.arrayElement(stripeEvents)
+  const amount = faker.number.int({ min: 1000, max: 50000 })
+  const currency = faker.helpers.arrayElement(['usd', 'eur', 'brl'])
 
-  const webhookData = Array.from({ length: 65 }, (_, index) => {
-    const eventType =
-      stripeEvents[faker.number.int({ min: 0, max: stripeEvents.length - 1 })]
-    const webhookId = `webhook_${faker.string.alphanumeric({ length: 24 })}`
-    const eventId = `evt_${faker.string.alphanumeric({ length: 24 })}`
-    const timestamp = faker.date.past({ years: 1 })
-
-    // Criar corpo do webhook baseado no tipo de evento
-    let body: string
-
-    switch (eventType) {
-      case 'payment_intent.succeeded':
-        body = JSON.stringify({
-          id: eventId,
-          object: 'event',
-          api_version: '2023-10-16',
-          created: Math.floor(timestamp.getTime() / 1000),
-          type: eventType,
-          data: {
-            object: {
-              id: `pi_${faker.string.alphanumeric({ length: 24 })}`,
-              object: 'payment_intent',
-              amount: faker.number.int({ min: 100, max: 100000 }),
-              currency: 'brl',
-              status: 'succeeded',
-              payment_method: `pm_${faker.string.alphanumeric({ length: 24 })}`,
-              customer: `cus_${faker.string.alphanumeric({ length: 14 })}`,
-              created: Math.floor(timestamp.getTime() / 1000),
-              metadata: {
-                order_id: faker.string.alphanumeric({ length: 10 }),
-                description: faker.commerce.productName(),
-              },
-            },
-          },
-        })
-        break
-
-      case 'invoice.payment_succeeded':
-        body = JSON.stringify({
-          id: eventId,
-          object: 'event',
-          api_version: '2023-10-16',
-          created: Math.floor(timestamp.getTime() / 1000),
-          type: eventType,
-          data: {
-            object: {
-              id: `in_${faker.string.alphanumeric({ length: 24 })}`,
-              object: 'invoice',
-              amount_paid: faker.number.int({ min: 100, max: 100000 }),
-              amount_due: faker.number.int({ min: 100, max: 100000 }),
-              currency: 'brl',
-              status: 'paid',
-              customer: `cus_${faker.string.alphanumeric({ length: 14 })}`,
-              subscription: `sub_${faker.string.alphanumeric({ length: 14 })}`,
-              period_end: Math.floor(timestamp.getTime() / 1000) + 2592000,
-              period_start: Math.floor(timestamp.getTime() / 1000),
-              lines: {
-                data: [
-                  {
-                    price: {
-                      id: `price_${faker.string.alphanumeric({ length: 24 })}`,
-                      unit_amount: faker.number.int({ min: 1000, max: 50000 }),
-                      currency: 'brl',
-                      recurring: {
-                        interval: 'month',
-                      },
-                      product: `prod_${faker.string.alphanumeric({ length: 14 })}`,
-                    },
-                    quantity: 1,
-                  },
-                ],
-              },
-            },
-          },
-        })
-        break
-
-      case 'customer.created':
-        body = JSON.stringify({
-          id: eventId,
-          object: 'event',
-          api_version: '2023-10-16',
-          created: Math.floor(timestamp.getTime() / 1000),
-          type: eventType,
-          data: {
-            object: {
-              id: `cus_${faker.string.alphanumeric({ length: 14 })}`,
-              object: 'customer',
-              email: faker.internet.email(),
-              name: faker.person.fullName(),
-              phone: faker.phone.number(),
-              description: faker.lorem.sentence(),
-              currency: 'brl',
-              created: Math.floor(timestamp.getTime() / 1000),
-              metadata: {
-                source: 'website',
-                utm_campaign: faker.lorem.word(),
-              },
-            },
-          },
-        })
-        break
-
-      case 'charge.failed':
-        body = JSON.stringify({
-          id: eventId,
-          object: 'event',
-          api_version: '2023-10-16',
-          created: Math.floor(timestamp.getTime() / 1000),
-          type: eventType,
-          data: {
-            object: {
-              id: `ch_${faker.string.alphanumeric({ length: 24 })}`,
-              object: 'charge',
-              amount: faker.number.int({ min: 100, max: 100000 }),
-              currency: 'brl',
-              status: 'failed',
-              failure_code: 'card_declined',
-              failure_message: 'Your card was declined.',
-              payment_method: `pm_${faker.string.alphanumeric({ length: 24 })}`,
-              customer: `cus_${faker.string.alphanumeric({ length: 14 })}`,
-              created: Math.floor(timestamp.getTime() / 1000),
-            },
-          },
-        })
-        break
-
-      default:
-        body = JSON.stringify({
-          id: eventId,
-          object: 'event',
-          api_version: '2023-10-16',
-          created: Math.floor(timestamp.getTime() / 1000),
-          type: eventType,
-          data: {
-            object: {
-              id: `${eventType.includes('subscription') ? 'sub_' : 'obj_'}${faker.string.alphanumeric({ length: 24 })}`,
-              object: eventType.split('.')[0],
-              created: Math.floor(timestamp.getTime() / 1000),
-              metadata: {
-                generated: true,
-                event_type: eventType,
-              },
-            },
-          },
-        })
-    }
-
-    return {
-      method: 'POST',
-      pathname: '/webhooks/stripe',
-      ip: faker.internet.ipv4(),
-      statusCode: 200,
-      contentType: 'application/json',
-      contentLength: Buffer.byteLength(body),
-      queryParams: {},
-      headers: {
-        'stripe-signature': `t=${Math.floor(timestamp.getTime() / 1000)},v1=${faker.string.alphanumeric({ length: 128 })},v0=${faker.string.alphanumeric({ length: 128 })}`,
-        'content-type': 'application/json',
-        'user-agent': 'Stripe/1.0 (+https://stripe.com/docs/webhooks)',
-        'stripe-version': '2023-10-16',
-        'content-length': String(Buffer.byteLength(body)),
-        'x-forwarded-for': faker.internet.ipv4(),
-        host: 'webhook.inspector.com',
-        connection: 'close',
-        accept: '*/*',
+  // Corpo do webhook simulando estrutura do Stripe
+  const body = {
+    id: `evt_${faker.string.alphanumeric(24)}`,
+    object: 'event',
+    api_version: '2023-10-16',
+    created: faker.date.recent({ days: 30 }).getTime() / 1000,
+    type: eventType,
+    data: {
+      object: {
+        id: eventType.includes('charge')
+          ? `ch_${faker.string.alphanumeric(24)}`
+          : eventType.includes('payment_intent')
+            ? `pi_${faker.string.alphanumeric(24)}`
+            : eventType.includes('invoice')
+              ? `in_${faker.string.alphanumeric(24)}`
+              : eventType.includes('customer')
+                ? `cus_${faker.string.alphanumeric(14)}`
+                : `cs_${faker.string.alphanumeric(24)}`,
+        object: eventType.split('.')[0],
+        amount: amount,
+        currency: currency,
+        customer: `cus_${faker.string.alphanumeric(14)}`,
+        description: faker.company.catchPhrase(),
+        status: eventType.includes('failed') ? 'failed' : 'succeeded',
+        receipt_email: faker.internet.email(),
       },
-      body,
-      createdAt: timestamp,
-    }
-  })
+    },
+  }
 
-  // Inserir webhooks em ordem cronológica
-  webhookData.sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-  )
+  // Headers típicos do Stripe
+  const headers = {
+    'content-type': 'application/json',
+    'stripe-signature': `t=${Math.floor(Date.now() / 1000)},v1=${faker.string.alphanumeric(64)}`,
+    'user-agent': 'Stripe/1.0 (+https://stripe.com/docs/webhooks)',
+    accept: '*/*',
+    'accept-encoding': 'gzip, deflate',
+    'x-stripe-client-user-agent': JSON.stringify({
+      bindings_version: '10.0.0',
+      lang: 'node',
+      lang_version: '18.0.0',
+      platform: 'linux',
+      publisher: 'stripe',
+    }),
+  }
 
-  await db.insert(webhooks).values(webhookData)
+  const bodyString = JSON.stringify(body, null, 2)
 
-  console.log(
-    `✅ ${webhookData.length} webhooks do Stripe inseridos com sucesso!`,
-  )
+  return {
+    method: 'POST',
+    pathname: '/webhooks/stripe',
+    ip: faker.internet.ipv4(),
+    statusCode: faker.helpers.arrayElement([200, 200, 200, 200, 500]), // Maioria 200
+    contentType: 'application/json',
+    contentLength: Buffer.byteLength(bodyString),
+    queryParams: null,
+    headers: headers,
+    body: bodyString,
+    createdAt: faker.date.recent({ days: 30 }),
+  }
 }
 
-seed().catch(console.error)
+async function seed() {
+  console.log('🌱 Seeding database...')
+
+  await db.delete(webhooks)
+
+  // Gerar 60 webhooks
+  const webhooksData = Array.from({ length: 60 }, () => generateStripeWebhook())
+
+  // Ordenar por data de criação (mais antigos primeiro)
+  webhooksData.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+
+  await db.insert(webhooks).values(webhooksData)
+
+  console.log('✅ Database seeded successfully with 60 Stripe webhooks!')
+}
+
+seed()
+  .catch((error) => {
+    console.error('❌ Error seeding database:', error)
+    process.exit(1)
+  })
+  .finally(() => {
+    process.exit(0)
+  })
