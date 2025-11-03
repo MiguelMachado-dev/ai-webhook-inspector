@@ -27,13 +27,13 @@ const CodeBlock = ({
   return (
     <div
       className={twMerge(
-        'relative rounded-lg border border-zinc-700 overflow-x-auto',
+        'relative rounded-lg border border-zinc-700 overflow-x-auto w-auto',
         className,
       )}
       {...props}
     >
       <div
-        className="[&_pre]:p-4 [&_pre]:text-sm [&_pre]:font-mono [&_pre]:leading-relaxed"
+        className="[&_pre]:p-4 [&_pre]:text-sm [&_pre]:font-mono [&_pre]:leading-relaxed [&_pre]:w-full [&_pre]:overflow-auto [&_pre]:scrollbar-thin [&_pre]:scrollbar-thumb-rounded-full [&_pre]:scrollbar-track-rounded-full [&_pre]:scrollbar-thumb-zinc-700 [&_pre]:scrollbar-track-zinc-900"
         dangerouslySetInnerHTML={{ __html: parsedCode }}
       />
     </div>
