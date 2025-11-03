@@ -1,5 +1,5 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import { generateText } from 'ai'
+import { streamText } from 'ai'
 import { inArray } from 'drizzle-orm'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
@@ -7,7 +7,7 @@ import { db } from '@/db'
 import { webhooks } from '@/db/schema'
 
 const zai = createOpenAICompatible({
-  apiKey: process.env.ZAI_API_KEY!,
+  apiKey: process.env.ZAI_API_KEY,
   baseURL: 'https://api.z.ai/api/coding/paas/v4',
   name: 'glm-4.6',
 })
@@ -17,16 +17,11 @@ export const generateHandler: FastifyPluginAsyncZod = async (app) => {
     '/api/generate',
     {
       schema: {
-        summary: 'Generate a TypeScript handler',
+        summary: 'Generate a TypeScript handler (streaming)',
         tags: ['Webhooks'],
         body: z.object({
           webhookIds: z.array(z.uuidv7()),
         }),
-        response: {
-          201: z.object({
-            code: z.string(),
-          }),
-        },
       },
     },
     async (request, reply) => {
@@ -42,7 +37,7 @@ export const generateHandler: FastifyPluginAsyncZod = async (app) => {
 
       const webhooksBodies = result.map((webhook) => webhook.body).join('\n\n')
 
-      const { text } = await generateText({
+      const { textStream } = streamText({
         model,
         prompt: `
         Generate a TypeScript function that serves as a handler for multiple webhook events. The function should accept a request body containing different webhooks.
@@ -59,6 +54,7 @@ export const generateHandler: FastifyPluginAsyncZod = async (app) => {
         - Zod schemas for each event type.
         - Logic to handle each event based on the validated data.
         - Appropriate error handling for invalid payloads.
+        - Focus on performance and follow best practices for latest zod versions.
 
         ---
 
@@ -66,7 +62,22 @@ export const generateHandler: FastifyPluginAsyncZod = async (app) => {
         `.trim(),
       })
 
-      return reply.status(201).send({ code: text })
+      reply.hijack()
+
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'access-control-allow-origin': '*',
+      })
+
+      // Stream the text to the client
+      for await (const text of textStream) {
+        reply.raw.write(text)
+      }
+
+      reply.raw.end()
     },
   )
 }

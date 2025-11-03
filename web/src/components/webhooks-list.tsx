@@ -11,6 +11,7 @@ const WebhooksList = () => {
   const observerRef = useRef<IntersectionObserver>(null)
   const [checkedWebhooksIds, setCheckedWebhooksIds] = useState<string[]>([])
   const [generatedHandlerCode, setGeneratedHandlerCode] = useState<string>('')
+  const [isGenerating, setIsGenerating] = useState<boolean>(false)
 
   const { data, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery({
@@ -75,28 +76,64 @@ const WebhooksList = () => {
   }
 
   async function handleGenerateHandler() {
-    const response = await fetch('http://localhost:3333/api/generate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        webhookIds: checkedWebhooksIds,
-      }),
-    })
+    setIsGenerating(true)
+    setGeneratedHandlerCode('') // Clear previous code
 
-    type GenerateResponse = {
-      code: string
+    try {
+      const response = await fetch('http://localhost:3333/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          webhookIds: checkedWebhooksIds,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('No reader available for response body')
+      }
+
+      const decoder = new TextDecoder()
+      let generatedCode = ''
+
+      // Read the stream
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        generatedCode += chunk
+
+        // Update the state with the current accumulated text
+        setGeneratedHandlerCode(generatedCode)
+      }
+
+      const finalChunk = decoder.decode()
+      if (finalChunk) {
+        generatedCode += finalChunk
+        setGeneratedHandlerCode(generatedCode)
+      }
+
+      // Clean up the code after streaming is complete
+      const cleanedCode = generatedCode
+        .replace(/```typescript\n/, '')
+        .replace(/```/g, '')
+
+      setGeneratedHandlerCode(cleanedCode)
+    } catch (error) {
+      console.error('Error generating handler:', error)
+      setGeneratedHandlerCode(
+        '// Error generating handler code. Please try again.',
+      )
+    } finally {
+      setIsGenerating(false)
     }
-
-    const data: GenerateResponse = await response.json()
-
-    // Remove ```typescruot and ``` if present
-    const cleanedCode = data.code
-      .replace(/```typescript\n/, '')
-      .replace(/```/g, '')
-
-    setGeneratedHandlerCode(cleanedCode)
   }
 
   const hasAnyCheckedWebhooks = checkedWebhooksIds.length > 0
@@ -106,12 +143,19 @@ const WebhooksList = () => {
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full scrollbar-thumb-zinc-700 scrollbar-track-zinc-900">
         <div className="space-y-1 p-2">
           <button
-            disabled={!hasAnyCheckedWebhooks}
+            disabled={!hasAnyCheckedWebhooks || isGenerating}
             className="w-full bg-indigo-400 mb-3 cursor-pointer text-white rounded-lg flex items-center justify-center gap-3 font-medium text-sm py-2 disabled:opacity-50 hover:bg-indigo-500 transition-colors duration-200"
             type="button"
             onClick={handleGenerateHandler}
           >
-            Gerar handler
+            {isGenerating ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Gerando handler...
+              </>
+            ) : (
+              'Gerar handler'
+            )}
           </button>
           {webhooks.map((webhook) => {
             return (
@@ -136,19 +180,37 @@ const WebhooksList = () => {
         )}
       </div>
 
-      {generatedHandlerCode && (
+      {(generatedHandlerCode || isGenerating) && (
         <Dialog.Root
           open={true}
-          onOpenChange={() => setGeneratedHandlerCode('')}
+          onOpenChange={() => {
+            if (!isGenerating) {
+              setGeneratedHandlerCode('')
+            }
+          }}
         >
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-20" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 max-h-[80vh] w-[90vw] max-w-4xl -translate-x-1/2 -translate-y-1/2 bg-zinc-900 border-zinc-800 rounded-lg p-6 shadow-lg overflow-auto z-30 scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full scrollbar-thumb-zinc-700 scrollbar-track-zinc-900">
-            <Dialog.Title className="text-lg font-medium mb-4">
-              Generated Handler Code
+          <Dialog.Content
+            aria-describedby="generated-handler-code"
+            className="fixed top-1/2 left-1/2 max-h-[80vh] w-[90vw] max-w-4xl -translate-x-1/2 -translate-y-1/2 bg-zinc-900 border-zinc-700 rounded-lg p-6 shadow-lg overflow-auto z-30 scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full scrollbar-thumb-zinc-700 scrollbar-track-zinc-900"
+          >
+            <Dialog.Title className="text-lg font-medium mb-4 flex items-center gap-2">
+              {isGenerating && (
+                <Loader2 className="size-5 animate-spin text-indigo-400" />
+              )}
+              {isGenerating
+                ? 'Generating Handler Code...'
+                : 'Generated Handler Code'}
             </Dialog.Title>
-            <CodeBlock language="typescript" code={generatedHandlerCode} />
-            <Dialog.Close className="mt-4 inline-block bg-indigo-400 cursor-pointer text-white rounded-lg px-4 py-2 hover:bg-indigo-500 transition-colors duration-200">
-              Close
+            <CodeBlock
+              language="typescript"
+              code={generatedHandlerCode || '// Generating code...'}
+            />
+            <Dialog.Close
+              className="mt-4 inline-block bg-indigo-400 cursor-pointer text-white rounded-lg px-4 py-2 hover:bg-indigo-500 transition-colors duration-200 disabled:opacity-50"
+              disabled={isGenerating}
+            >
+              {isGenerating ? 'Generating...' : 'Close'}
             </Dialog.Close>
           </Dialog.Content>
         </Dialog.Root>
