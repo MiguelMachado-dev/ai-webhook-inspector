@@ -1,6 +1,6 @@
 # AI Webhook Inspector
 
-A full-stack webhook inspection application with Node.js/Fastify backend and React/Vite frontend for capturing and analyzing incoming webhook requests.
+A comprehensive webhook inspection and handler generation platform with Node.js/Fastify backend and React/Vite frontend. Capture, analyze webhook requests, and automatically generate TypeScript handler functions with Zod schemas for production-ready webhook processing.
 
 ## Architecture
 
@@ -22,19 +22,34 @@ A full-stack webhook inspection application with Node.js/Fastify backend and Rea
 
 ## Features
 
+### Webhook Inspection & Capture
+- **Universal Webhook Capture**: Captures all HTTP method types to `/capture/*` endpoints
+- **Request Storage**: Comprehensive storage of method, pathname, IP, headers, body, and metadata
+- **Real-time Updates**: Live webhook capture and immediate frontend updates
+- **Advanced Filtering**: Search and filter webhooks by various criteria
+- **Detailed Inspection**: Complete request analysis with formatted JSON responses
+
+### AI-Powered Handler Generation
+- **Automatic TypeScript Generation**: Generate production-ready webhook handler functions from captured data
+- **Zod Schema Validation**: Automatically create Zod schemas for each webhook event type
+- **Multi-event Support**: Handle multiple webhook events in a single generated function
+- **Error Handling**: Built-in error handling for invalid payloads and edge cases
+- **Best Practices**: Generated code follows latest Zod and TypeScript best practices
+- **Performance Optimized**: Efficient validation and event routing logic
+
 ### Backend API
-- **Webhook Capture**: Captures all HTTP method types to `/capture/*` endpoints
-- **Request Storage**: Stores method, pathname, IP, headers, body, and metadata
-- **Pagination**: Cursor-based pagination for webhook lists
+- **Cursor-based Pagination**: Efficient pagination for large webhook datasets
 - **API Documentation**: Auto-generated OpenAPI docs available at `/docs`
-- **CORS**: Enabled for all origins with common HTTP methods
+- **CORS Support**: Enabled for all origins with common HTTP methods
+- **Type Safety**: Full TypeScript support with Zod validation throughout
 
 ### Frontend Application
-- **Resizable Panel Layout**: Sidebar navigation with main content area
-- **Infinite Scrolling**: Webhook list with intersection observer for large datasets
-- **Real-time Updates**: TanStack Query manages caching and synchronization
-- **Detailed View**: Complete webhook request inspection including headers and body
-- **Dark Theme**: Modern dark interface with Tailwind CSS
+- **Resizable Panel Layout**: Flexible sidebar navigation with main content area
+- **Infinite Scrolling**: Smooth browsing through large webhook datasets
+- **Real-time Synchronization**: TanStack Query manages caching and real-time updates
+- **Handler Preview**: Live preview of generated TypeScript code with syntax highlighting
+- **Code Export**: Download generated handlers as .ts files
+- **Dark Theme**: Modern dark interface with Tailwind CSS v4
 
 ## Installation
 
@@ -93,6 +108,11 @@ Frontend will be available at `http://localhost:5173`
 - `GET /api/webhooks` - List webhooks with cursor-based pagination
 - `GET /api/webhooks/:id` - Get specific webhook details
 - `DELETE /api/webhooks/:id` - Delete a webhook
+
+### Handler Generation
+- `POST /api/generate-handler` - Generate TypeScript handler function from selected webhooks
+- Supports streaming responses for real-time code generation
+- Accepts multiple webhook IDs for multi-event handler creation
 
 ### Webhook Capture
 - `ALL /capture/*` - Catch-all route that captures incoming webhook requests
